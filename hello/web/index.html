@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+   <body>
+      <script>AUTOBAHN_DEBUG = true;</script>
+      <script src="autobahn.min.js"></script>
+
+      <script>
+      var myColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+
+         // the URL of the WAMP Router (Crossbar.io)
+         var wsuri;
+         if (document.location.origin == "file://") {
+            wsuri = "ws://127.0.0.1:8080/ws";
+
+         } else {
+            wsuri = (document.location.protocol === "http:" ? "ws:" : "wss:") + "//" +
+                        document.location.host + "/ws";
+         }
+
+         var connection = new autobahn.Connection({
+            url: wsuri,
+            realm: "realm1"
+         });
+
+         function insertMsg(msg, color) {
+            var chat_log = document.getElementById('chat_log');
+
+            chat_log.innerHTML = chat_log.innerHTML + '<p style=\'color:' + color + '\'>' + msg + '</p>';
+         }
+
+         connection.onopen = function (session) {
+            console.log("Connected");
+
+            function handleMsg(args, kwargs, details) {
+               var msg = args[0];
+               var color = args[1];
+
+               insertMsg(msg, color);
+            }
+
+            session.subscribe('com.examples.groupchat', handleMsg).then(
+               function(sub) {
+                  console.log('sub\'d');
+               },
+               function(err) {
+                  console.log(err);
+               }
+            );
+         };
+
+         connection.onclose = function () {
+            console.log("Connection lost", arguments);
+         };
+
+         connection.open();
+
+         function publish() {
+            var msg_box = document.getElementById('msg_box');
+            var msg = msg_box.value;
+            msg_box.value = '';
+
+            connection._session.publish('com.examples.groupchat', [msg, myColor], {}, { acknowledge: true}).then(
+               function(pub) {
+                  insertMsg(msg, myColor);
+               },
+               function(err) {
+                  insertMsg('Message not sent, try again');
+               }
+            );
+         }
+      </script>
+
+      <div id='chat_log'></div>
+
+      <input onkeydown="if (event.keyCode == 13) { publish(); }" id='msg_box' type='text'>
+      <button onclick='publish();'>Send</button>
+   </body>
+</html>
